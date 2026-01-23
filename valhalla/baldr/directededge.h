@@ -1200,6 +1200,20 @@ public:
   }
 
   /**
+   * Set the eco zone requirement for this edge.
+   * @param eco_zone  Eco zone requirement.
+   */
+  void set_eco_zone(const EcoZone eco_zone);
+
+  /**
+   * Get the eco zone requirement for this edge.
+   * @return  Returns eco zone requirement.
+   */
+  EcoZone eco_zone() const {
+    return static_cast<EcoZone>(eco_zone_);
+  }
+
+  /**
    * Create a json object representing this edge
    *  @param writer The writer json object to represent the object
    */
@@ -1268,7 +1282,8 @@ protected:
   uint64_t indoor_ : 1;         // Is this edge indoor
   uint64_t lit_ : 1;            // Is the edge lit?
   uint64_t dest_only_hgv_ : 1;  // destonly for HGV specifically
-  uint64_t spare4_ : 3;
+  uint64_t eco_zone_ : 2;       // Eco zone requirement
+  uint64_t spare4_ : 1;
 
   // 5th 8-byte word
   uint64_t turntype_ : 24;      // Turn type (see graphconstants.h)

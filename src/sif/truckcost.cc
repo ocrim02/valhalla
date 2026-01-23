@@ -7,6 +7,9 @@
 #include "proto_conversions.h"
 #include "sif/osrm_car_duration.h"
 
+#include <algorithm>
+#include <cctype>
+
 #ifdef INLINE_TEST
 #include "test.h"
 #include "worker.h"
@@ -114,6 +117,49 @@ BaseCostingOptionsConfig GetBaseCostOptsConfig() {
 }
 
 const BaseCostingOptionsConfig kBaseCostOptsConfig = GetBaseCostOptsConfig();
+
+Costing::EcoZoneType ParseEcoZoneType(const std::string& value, bool& ok) {
+  std::string v = value;
+  std::transform(v.begin(), v.end(), v.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+  if (v == "red" || v == "1") {
+    ok = true;
+    return Costing::kEcoZoneRed;
+  }
+  if (v == "yellow" || v == "2") {
+    ok = true;
+    return Costing::kEcoZoneYellow;
+  }
+  if (v == "green" || v == "3") {
+    ok = true;
+    return Costing::kEcoZoneGreen;
+  }
+  if (v == "none" || v == "0") {
+    ok = true;
+    return Costing::kEcoZoneNone;
+  }
+
+  ok = false;
+  return Costing::kEcoZoneNone;
+}
+
+void ParseEcoZoneOption(const rapidjson::Value& json, Costing::Options* co) {
+  if (auto eco_zone_str = rapidjson::get_optional<std::string>(json, "/eco_zone")) {
+    bool ok = false;
+    auto zone = ParseEcoZoneType(*eco_zone_str, ok);
+    if (ok) {
+      co->set_eco_zone(zone);
+    }
+    return;
+  }
+
+  if (auto eco_zone_val = rapidjson::get_optional<uint32_t>(json, "/eco_zone")) {
+    if (*eco_zone_val <= static_cast<uint32_t>(Costing::kEcoZoneGreen)) {
+      co->set_eco_zone(static_cast<Costing::EcoZoneType>(*eco_zone_val));
+    }
+  }
+}
 
 } // namespace
 
@@ -298,6 +344,13 @@ public:
    */
   virtual uint8_t travel_type() const override;
 
+  bool IsEcoZoneAllowed(const baldr::DirectedEdge* edge) const {
+    if (!use_eco_zone_) {
+      return true;
+    }
+    return static_cast<uint8_t>(edge->eco_zone()) <= static_cast<uint8_t>(eco_zone_);
+  }
+
   /**
    * Function to be used in location searching which will
    * exclude and allow ranking results from the search by looking at each
@@ -311,7 +364,7 @@ public:
     bool allow_closures = (!filter_closures_ && !(disallow_mask & kDisallowClosure)) ||
                           !(flow_mask_ & kCurrentFlowMask);
     return DynamicCost::Allowed(edge, tile, disallow_mask) && !edge->bss_connection() &&
-           (allow_closures || !tile->IsClosed(edge));
+           (allow_closures || !tile->IsClosed(edge)) && IsEcoZoneAllowed(edge);
   }
 
 public:
@@ -332,6 +385,8 @@ public:
 
   // determine if we should allow hgv=no edges and penalize them instead
   float no_hgv_access_penalty_;
+  bool use_eco_zone_;
+  baldr::EcoZone eco_zone_;
 };
 
 // Constructor
@@ -358,6 +413,10 @@ TruckCost::TruckCost(const Costing& costing)
   width_ = costing_options.width();
   length_ = costing_options.length();
   axle_count_ = costing_options.axle_count();
+
+  use_eco_zone_ = costing_options.has_eco_zone_case();
+  eco_zone_ = use_eco_zone_ ? static_cast<baldr::EcoZone>(costing_options.eco_zone())
+                            : baldr::EcoZone::kNone;
 
   // Create speed cost table
   // Preference to use highways. Is a value from 0 to 1
@@ -463,7 +522,8 @@ inline bool TruckCost::Allowed(const baldr::DirectedEdge* edge,
       edge->surface() == Surface::kImpassable || IsUserAvoidEdge(edgeid) ||
       (!allow_destination_only_ && !pred.destonly() && edge->destonly_hgv()) ||
       (pred.closure_pruning() && IsClosed(edge, tile)) ||
-      (exclude_unpaved_ && !pred.unpaved() && edge->unpaved()) || CheckExclusions(edge, pred)) {
+      (exclude_unpaved_ && !pred.unpaved() && edge->unpaved()) || !IsEcoZoneAllowed(edge) ||
+      CheckExclusions(edge, pred)) {
     return false;
   }
 
@@ -489,6 +549,7 @@ bool TruckCost::AllowedReverse(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && opp_edge->destonly_hgv()) ||
       (pred.closure_pruning() && IsClosed(opp_edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && opp_edge->unpaved()) ||
+      !IsEcoZoneAllowed(opp_edge) ||
       CheckExclusions(opp_edge, pred)) {
     return false;
   }
@@ -748,6 +809,7 @@ void ParseTruckCostOptions(const rapidjson::Document& doc,
   JSON_PBF_RANGED_DEFAULT(co, kHGVNoAccessRange, json, "/hgv_no_access_penalty",
                           hgv_no_access_penalty);
   JSON_PBF_RANGED_DEFAULT_V2(co, kUseTruckRouteRange, json, "/use_truck_route", use_truck_route);
+  ParseEcoZoneOption(json, co);
 }
 
 cost_ptr_t CreateTruckCost(const Costing& costing_options) {

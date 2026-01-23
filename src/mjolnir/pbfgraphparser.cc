@@ -1963,6 +1963,18 @@ struct graph_parser {
     tag_handlers_["guidance_view:signboard:base:backward"] = [this]() {
       way_.set_bwd_signboard_base_index(osmdata_.name_offset_map.index(tag_.second));
     };
+    tag_handlers_["eco_zone"] = [this]() {
+      const auto& value = tag_.second;
+      if (value == "red" || value == "1") {
+        way_.set_eco_zone(EcoZone::kRed);
+      } else if (value == "yellow" || value == "2") {
+        way_.set_eco_zone(EcoZone::kYellow);
+      } else if (value == "green" || value == "3") {
+        way_.set_eco_zone(EcoZone::kGreen);
+      } else {
+        way_.set_eco_zone(EcoZone::kNone);
+      }
+    };
     tag_handlers_["lit"] = [this]() { way_.set_lit(tag_.second == "true" ? true : false); };
   }
 

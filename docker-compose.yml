@@ -1,0 +1,29 @@
+services:
+  valhalla-base:
+    image: valhalla-local:base
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        BUILD_TYPE: Release
+    profiles:
+      - build
+    command: ["true"]
+
+  valhalla:
+    image: valhalla-local:scripted
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-scripted
+      args:
+        VALHALLA_BUILDER_IMAGE: valhalla-local:base
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./custom_files:/custom_files
+    environment:
+      serve_tiles: "True"
+      build_admins: "True"
+      build_time_zones: "True"
+      build_elevation: "False"
+      use_default_speeds_config: "True"

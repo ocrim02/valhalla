@@ -594,6 +594,10 @@ void DirectedEdge::set_lit(const bool lit) {
   lit_ = lit;
 }
 
+void DirectedEdge::set_eco_zone(const EcoZone eco_zone) {
+  eco_zone_ = static_cast<uint64_t>(eco_zone);
+}
+
 // json representation
 void DirectedEdge::json(rapidjson::writer_wrapper_t& writer) const {
   writer.start_object("end_node");

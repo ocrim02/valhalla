@@ -131,6 +131,13 @@ message Costing {
     bikeshare = 11;    // turns into pedestrian + bike
   }
 
+  enum EcoZoneType {
+    kEcoZoneNone = 0;
+    kEcoZoneRed = 1;
+    kEcoZoneYellow = 2;
+    kEcoZoneGreen = 3;
+  }
+
   message Options {
     oneof has_maneuver_penalty {
       float maneuver_penalty = 1;
@@ -349,8 +356,11 @@ message Costing {
     bool ignore_construction = 93;
     repeated CostFactorEdge cost_factor_edges = 94;     // identified edges along user provided linear features, to which to apply special cost factors
     oneof has_speed_penalty_factor {
-          float speed_penalty_factor = 95;
-        }
+      float speed_penalty_factor = 95;
+    }
+    oneof has_eco_zone {
+      EcoZoneType eco_zone = 96;
+    }
   }
 
   oneof has_options {

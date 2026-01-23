@@ -672,6 +672,14 @@ inline std::string to_string(Surface s) {
   return i->second;
 }
 
+// Eco zone requirement for an edge. Higher values indicate stricter zones.
+enum class EcoZone : uint8_t {
+  kNone = 0,
+  kRed = 1,
+  kYellow = 2,
+  kGreen = 3
+};
+
 // Used for restrictions.  A restriction can start and end on a particular day
 enum class DOW : uint8_t {
   kNone = 0,

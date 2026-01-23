@@ -1659,6 +1659,22 @@ struct OSMWay {
   }
 
   /**
+   * Sets the eco zone requirement for this way.
+   * @param  eco_zone  Eco zone requirement.
+   */
+  void set_eco_zone(const baldr::EcoZone eco_zone) {
+    eco_zone_ = static_cast<uint16_t>(eco_zone);
+  }
+
+  /**
+   * Get the eco zone requirement for this way.
+   * @return  Returns eco zone requirement.
+   */
+  baldr::EcoZone eco_zone() const {
+    return static_cast<baldr::EcoZone>(eco_zone_);
+  }
+
+  /**
    * Sets the has_user_tags flag.
    * @param  has_user_tags   Did a user enter the access tags?
    */
@@ -2708,7 +2724,7 @@ struct OSMWay {
   uint16_t bike_backward_ : 1;
   uint16_t lit_ : 1;
   uint16_t destination_only_hgv_ : 1;
-  uint16_t spare2_ : 2;
+  uint16_t eco_zone_ : 2;
 
   uint16_t nodecount_;
 

@@ -10,6 +10,9 @@
 #include "sif/dynamiccost.h"
 #include "sif/osrm_car_duration.h"
 
+#include <algorithm>
+#include <cctype>
+
 #ifdef INLINE_TEST
 #include "test.h"
 #include "worker.h"
@@ -117,6 +120,49 @@ BaseCostingOptionsConfig GetBaseCostOptsConfig() {
 }
 
 const BaseCostingOptionsConfig kBaseCostOptsConfig = GetBaseCostOptsConfig();
+
+Costing::EcoZoneType ParseEcoZoneType(const std::string& value, bool& ok) {
+  std::string v = value;
+  std::transform(v.begin(), v.end(), v.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+  if (v == "red" || v == "1") {
+    ok = true;
+    return Costing::kEcoZoneRed;
+  }
+  if (v == "yellow" || v == "2") {
+    ok = true;
+    return Costing::kEcoZoneYellow;
+  }
+  if (v == "green" || v == "3") {
+    ok = true;
+    return Costing::kEcoZoneGreen;
+  }
+  if (v == "none" || v == "0") {
+    ok = true;
+    return Costing::kEcoZoneNone;
+  }
+
+  ok = false;
+  return Costing::kEcoZoneNone;
+}
+
+void ParseEcoZoneOption(const rapidjson::Value& json, Costing::Options* co) {
+  if (auto eco_zone_str = rapidjson::get_optional<std::string>(json, "/eco_zone")) {
+    bool ok = false;
+    auto zone = ParseEcoZoneType(*eco_zone_str, ok);
+    if (ok) {
+      co->set_eco_zone(zone);
+    }
+    return;
+  }
+
+  if (auto eco_zone_val = rapidjson::get_optional<uint32_t>(json, "/eco_zone")) {
+    if (*eco_zone_val <= static_cast<uint32_t>(Costing::kEcoZoneGreen)) {
+      co->set_eco_zone(static_cast<Costing::EcoZoneType>(*eco_zone_val));
+    }
+  }
+}
 
 } // namespace
 
@@ -329,6 +375,13 @@ public:
     return false;
   }
 
+  bool IsEcoZoneAllowed(const baldr::DirectedEdge* edge) const {
+    if (!use_eco_zone_) {
+      return true;
+    }
+    return static_cast<uint8_t>(edge->eco_zone()) <= static_cast<uint8_t>(eco_zone_);
+  }
+
   /**
    * Function to be used in location searching which will
    * exclude and allow ranking results from the search by looking at each
@@ -342,7 +395,7 @@ public:
     bool allow_closures = (!filter_closures_ && !(disallow_mask & kDisallowClosure)) ||
                           !(flow_mask_ & kCurrentFlowMask);
     return DynamicCost::Allowed(edge, tile, disallow_mask) && !edge->bss_connection() &&
-           (allow_closures || !tile->IsClosed(edge)) && IsHOVAllowed(edge);
+           (allow_closures || !tile->IsClosed(edge)) && IsHOVAllowed(edge) && IsEcoZoneAllowed(edge);
   }
 
   // Hidden in source file so we don't need it to be protected
@@ -361,6 +414,8 @@ public:
   float width_;  // Vehicle width in meters
   float length_; // Vehicle length in meters
   float weight_; // Vehicle weight in metric tons
+  bool use_eco_zone_;
+  baldr::EcoZone eco_zone_;
 };
 
 // Constructor
@@ -414,6 +469,10 @@ AutoCost::AutoCost(const Costing& costing, uint32_t access_mask)
   width_ = costing_options.width();
   length_ = costing_options.length();
   weight_ = costing_options.weight();
+
+  use_eco_zone_ = costing_options.has_eco_zone_case();
+  eco_zone_ = use_eco_zone_ ? static_cast<baldr::EcoZone>(costing_options.eco_zone())
+                            : baldr::EcoZone::kNone;
 }
 
 // Check if access is allowed on the specified edge.
@@ -437,6 +496,7 @@ bool AutoCost::Allowed(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && edge->unpaved()) || !IsHOVAllowed(edge) ||
+      !IsEcoZoneAllowed(edge) ||
       CheckExclusions(edge, pred)) {
     return false;
   }
@@ -464,6 +524,7 @@ bool AutoCost::AllowedReverse(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && opp_edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(opp_edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && opp_edge->unpaved()) || !IsHOVAllowed(opp_edge) ||
+      !IsEcoZoneAllowed(opp_edge) ||
       CheckExclusions(opp_edge, pred)) {
     return false;
   }
@@ -723,6 +784,7 @@ void ParseAutoCostOptions(const rapidjson::Document& doc,
   JSON_PBF_DEFAULT_V2(co, false, json, "/include_hov2", include_hov2);
   JSON_PBF_DEFAULT_V2(co, false, json, "/include_hov3", include_hov3);
   JSON_PBF_RANGED_DEFAULT(co, kVehicleSpeedRange, json, "/top_speed", top_speed);
+  ParseEcoZoneOption(json, co);
 }
 
 cost_ptr_t CreateAutoCost(const Costing& costing_options) {
@@ -829,6 +891,7 @@ bool BusCost::Allowed(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && edge->unpaved()) || !IsHOVAllowed(edge) ||
+      !IsEcoZoneAllowed(edge) ||
       CheckExclusions(edge, pred)) {
     return false;
   }
@@ -856,6 +919,7 @@ bool BusCost::AllowedReverse(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && opp_edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(opp_edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && opp_edge->unpaved()) || !IsHOVAllowed(opp_edge) ||
+      !IsEcoZoneAllowed(opp_edge) ||
       CheckExclusions(opp_edge, pred)) {
     return false;
   }
@@ -1027,6 +1091,7 @@ bool TaxiCost::Allowed(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && edge->unpaved()) || !IsHOVAllowed(edge) ||
+      !IsEcoZoneAllowed(edge) ||
       CheckExclusions(edge, pred)) {
     return false;
   }
@@ -1054,6 +1119,7 @@ bool TaxiCost::AllowedReverse(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && opp_edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(opp_edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && opp_edge->unpaved()) || !IsHOVAllowed(opp_edge) ||
+      !IsEcoZoneAllowed(opp_edge) ||
       CheckExclusions(opp_edge, pred)) {
     return false;
   }

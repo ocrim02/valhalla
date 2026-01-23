@@ -916,6 +916,23 @@ function is_cash_only_payment(kv)
   return allows_cash_payment == true and allows_noncash_payment == false
 end
 
+function normalize_eco_zone(value)
+  if value == nil then
+    return nil
+  end
+
+  local v = string.lower(tostring(value))
+  if v == "red" or v == "1" then
+    return "red"
+  elseif v == "yellow" or v == "2" then
+    return "yellow"
+  elseif v == "green" or v == "3" then
+    return "green"
+  end
+
+  return nil
+end
+
 --returns 1 if you should filter this way 0 otherwise
 function filter_tags_generic(kv)
 
@@ -2353,6 +2370,13 @@ function nodes_proc (kv, nokeys)
     kv["tagged_access"] = 0
   else
     kv["tagged_access"] = 1
+  end
+
+  local eco_zone_value = kv["eco_zone"] or kv["low_emission_zone:class"] or kv["low_emission_zone"] or
+      kv["emission_zone"] or kv["environmental_zone"] or kv["lez"]
+  local eco_zone = normalize_eco_zone(eco_zone_value)
+  if eco_zone ~= nil then
+    kv["eco_zone"] = eco_zone
   end
 
   return 0, kv

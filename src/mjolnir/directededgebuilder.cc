@@ -100,6 +100,7 @@ DirectedEdgeBuilder::DirectedEdgeBuilder(const OSMWay& way,
   set_speed_type(tagged_speed ? SpeedType::kTagged : SpeedType::kClassified);
 
   set_lit(way.lit());
+  set_eco_zone(way.eco_zone());
 
   // Set forward flag and access modes (based on direction)
   set_forward(forward);
