@@ -26,6 +26,7 @@
 
 #include <filesystem>
 #include <future>
+#include <atomic>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -400,6 +401,38 @@ uint32_t AddAccessRestrictions(const uint32_t edgeid,
   return modes;
 }
 
+void LogTileBuildProgress(std::atomic_size_t& tiles_finished,
+                          std::atomic_size_t& next_tile_report,
+                          const size_t total_tiles,
+                          const size_t report_every) {
+  const size_t done = tiles_finished.fetch_add(1) + 1;
+  if (total_tiles == 0) {
+    return;
+  }
+
+  while (true) {
+    size_t target = next_tile_report.load();
+    if (done < target && done != total_tiles) {
+      return;
+    }
+
+    size_t next_target = target;
+    if (target < total_tiles) {
+      next_target = target + report_every;
+      if (next_target > total_tiles) {
+        next_target = total_tiles;
+      }
+    }
+
+    if (next_tile_report.compare_exchange_weak(target, next_target)) {
+      const auto percent = static_cast<uint32_t>((done * 100) / total_tiles);
+      LOG_INFO("Tile build progress: " + std::to_string(done) + "/" + std::to_string(total_tiles) +
+               " (" + std::to_string(percent) + "%)");
+      return;
+    }
+  }
+}
+
 void BuildTileSet(const std::string& ways_file,
                   const std::string& way_nodes_file,
                   const std::string& nodes_file,
@@ -413,6 +446,10 @@ void BuildTileSet(const std::string& ways_file,
                   std::mutex& tiles_lock,
                   const uint32_t tile_creation_date,
                   const boost::property_tree::ptree& pt,
+                  std::atomic_size_t& tiles_finished,
+                  std::atomic_size_t& next_tile_report,
+                  const size_t total_tiles,
+                  const size_t report_every,
                   std::promise<DataQuality>& result) {
 
   sequence<OSMWay> ways(ways_file, false);
@@ -1314,6 +1351,7 @@ void BuildTileSet(const std::string& ways_file,
 
       // Write the actual tile to disk
       graphtile.StoreTileData();
+      LogTileBuildProgress(tiles_finished, next_tile_report, total_tiles, report_every);
 
       // Made a tile
       LOG_DEBUG((boost::format("Wrote tile %1%: %2% bytes") % tile.first %
@@ -1353,6 +1391,10 @@ void BuildLocalTiles(const unsigned int thread_count,
 
   LOG_INFO("Building " + std::to_string(tiles.size()) + " tiles with " +
            std::to_string(thread_count) + " threads...");
+  const size_t total_tiles = tiles.size();
+  const size_t report_every = std::max<size_t>(1, total_tiles / 100);
+  std::atomic_size_t tiles_finished{0};
+  std::atomic_size_t next_tile_report{total_tiles > 0 ? report_every : 0};
 
   // A place to hold worker threads and their results, be they exceptions or otherwise
   std::vector<std::shared_ptr<std::thread>> threads(thread_count);
@@ -1378,6 +1420,8 @@ void BuildLocalTiles(const unsigned int thread_count,
                                       std::cref(linguistic_node_file), std::cref(tile_dir),
                                       std::cref(osmdata), std::ref(tile_queue), std::ref(tile_lock),
                                       tile_creation_date, std::cref(pt.get_child("mjolnir")),
+                                      std::ref(tiles_finished), std::ref(next_tile_report),
+                                      total_tiles, report_every,
                                       std::ref(results[i]));
   }
 

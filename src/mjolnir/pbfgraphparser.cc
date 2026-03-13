@@ -40,6 +40,9 @@ constexpr size_t kOsmBuffersPerLua = 4;
 // buffer allows Lua workers not to stuck if next needed buffer takes more time than others.
 constexpr size_t kWaysChunksPerLua = 8;
 constexpr char kExceptDestinationRestrictionFlag = '~';
+constexpr uint64_t kWaysProgressLogInterval = 100000;
+constexpr uint64_t kRelationsProgressLogInterval = 50000;
+constexpr uint64_t kNodesProgressLogInterval = 1000000;
 
 // Convenience method to get a number from a string. Uses try/catch in case
 // to_int throws an exception
@@ -50,6 +53,28 @@ int get_number(std::string_view tag, const std::string& value) { // NOLINT
     return -1;
   }
   return num.value();
+}
+
+std::string compact_count(const uint64_t value) {
+  if (value >= 1000000) {
+    const uint64_t whole = value / 1000000;
+    if (whole >= 100) {
+      return std::to_string(whole) + "M";
+    }
+    const uint64_t tenth = (value % 1000000) / 100000;
+    return std::to_string(whole) + "." + std::to_string(tenth) + "M";
+  }
+
+  if (value >= 1000) {
+    const uint64_t whole = value / 1000;
+    if (whole >= 100) {
+      return std::to_string(whole) + "K";
+    }
+    const uint64_t tenth = (value % 1000) / 100;
+    return std::to_string(whole) + "." + std::to_string(tenth) + "K";
+  }
+
+  return std::to_string(value);
 }
 
 void set_access_restriction_value(OSMAccessRestriction& restriction,
@@ -5150,6 +5175,7 @@ OSMData PBFGraphParser::ParseWays(const boost::property_tree::ptree& pt,
   // Parse the ways and find all node Ids needed (those that are part of a
   // way's node list. Iterate through each pbf input file.
   LOG_INFO("Parsing ways...");
+  uint64_t parsed_way_entities = 0;
   for (auto& file : input_files) {
     parser.current_way_node_index_ = parser.last_node_ = parser.last_way_ = parser.last_relation_ = 0;
 
@@ -5214,6 +5240,11 @@ OSMData PBFGraphParser::ParseWays(const boost::property_tree::ptree& pt,
       Ways transformed = future.get();
       for (const auto& way : transformed) {
         parser.way(way);
+        ++parsed_way_entities;
+        if (parsed_way_entities % kWaysProgressLogInterval == 0) {
+          LOG_INFO("Ways progress: processed " + compact_count(parsed_way_entities) +
+                   " OSM way entities");
+        }
       }
     }
 
@@ -5227,8 +5258,8 @@ OSMData PBFGraphParser::ParseWays(const boost::property_tree::ptree& pt,
   LOG_INFO("Clarifying and fixing cul-de-sacs...");
   parser.culdesac_processor_.clarify_and_fix(*parser.way_nodes_, *parser.ways_);
 
-  LOG_INFO("Finished with " + std::to_string(osmdata.osm_way_count) + " routable ways containing " +
-           std::to_string(osmdata.osm_way_node_count) + " nodes");
+  LOG_INFO("Finished with " + compact_count(osmdata.osm_way_count) +
+           " routable ways containing " + compact_count(osmdata.osm_way_node_count) + " nodes");
   parser.reset(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
   // we need to sort the access tags so that we can easily find them.
@@ -5273,6 +5304,7 @@ void PBFGraphParser::ParseRelations(const boost::property_tree::ptree& pt,
 
   // Parse relations.
   LOG_INFO("Parsing relations...");
+  uint64_t parsed_relations = 0;
   for (auto& file : input_files) {
     parser.current_way_node_index_ = parser.last_node_ = parser.last_way_ = parser.last_relation_ = 0;
 
@@ -5280,6 +5312,11 @@ void PBFGraphParser::ParseRelations(const boost::property_tree::ptree& pt,
     while (const osmium::memory::Buffer buffer = reader.read()) {
       for (const osmium::memory::Item& item : buffer) {
         parser.relation(static_cast<const osmium::Relation&>(item));
+        ++parsed_relations;
+        if (parsed_relations % kRelationsProgressLogInterval == 0) {
+          LOG_INFO("Relations progress: processed " + compact_count(parsed_relations) +
+                   " relation entities");
+        }
       }
     }
     reader.close(); // Explicit close to get an exception in case of an error.
@@ -5373,6 +5410,7 @@ void PBFGraphParser::ParseNodes(const boost::property_tree::ptree& pt,
   // being used in a way.
   // TODO: we know how many knows we expect, stop early once we have that many
   LOG_INFO("Parsing nodes...");
+  uint64_t parsed_nodes = 0;
   for (auto& file : input_files) {
     // each time we parse nodes we have to run through the way nodes file from the beginning because
     // because osm node ids are only sorted at the single pbf file level
@@ -5384,13 +5422,18 @@ void PBFGraphParser::ParseNodes(const boost::property_tree::ptree& pt,
     while (const osmium::memory::Buffer buffer = reader.read()) {
       for (const osmium::memory::Item& item : buffer) {
         parser.node(static_cast<const osmium::Node&>(item));
+        ++parsed_nodes;
+        if (parsed_nodes % kNodesProgressLogInterval == 0) {
+          LOG_INFO("Nodes progress: processed " + compact_count(parsed_nodes) +
+                   " node entities");
+        }
       }
     }
     reader.close(); // Explicit close to get an exception in case of an error.
   }
   uint64_t max_osm_id = parser.last_node_;
   parser.reset(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-  LOG_INFO("Finished with " + std::to_string(osmdata.osm_node_count) +
+  LOG_INFO("Finished with " + compact_count(osmdata.osm_node_count) +
            " nodes contained in routable ways");
 
   // we need to sort the refs so that we easily iterate over them for building edges

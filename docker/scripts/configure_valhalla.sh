@@ -5,6 +5,33 @@ set -o errexit -o pipefail -o nounset
 # source the helpers for globals and functions
 . /valhalla/scripts/helpers.sh
 
+run_with_progress_prefix() {
+  local stage_start_percent=$1
+  shift
+  "$@" 2>&1 | sed -u "s/^/[${stage_start_percent}%] /"
+}
+
+run_initial_graph_with_progress() {
+  local config_file=$1
+  shift
+  local files=("$@")
+  local stages=(initialize parseways parserelations parsenodes constructedges build)
+  # Weighted ranges for finer and more realistic progress movement.
+  local stage_start=(0 2 42 48 78 88)
+  local stage_end=(2 42 48 78 88 100)
+  local total=${#stages[@]}
+
+  for index in "${!stages[@]}"; do
+    local stage="${stages[$index]}"
+    local stage_start_percent=${stage_start[$index]}
+    local stage_end_percent=${stage_end[$index]}
+    echo "[${stage_start_percent}%] INFO: Running valhalla_build_tiles stage '${stage}'"
+    run_with_progress_prefix "${stage_start_percent}" \
+      valhalla_build_tiles -c "${config_file}" -s "${stage}" -e "${stage}" "${files[@]}"
+    echo "[${stage_end_percent}%] INFO: Completed stage '${stage}'"
+  done
+}
+
 # Strategy:
 #   - rebuild if:
 #     - admins or tz db don't exist
@@ -216,7 +243,8 @@ if [[ "${do_build}" == "True" ]]; then
   echo "= Build the initial graph. ="
   echo "============================"
 
-  valhalla_build_tiles -c ${CONFIG_FILE} -e build ${files}
+  # Build in explicit stages so we can report deterministic progress in the logs.
+  run_initial_graph_with_progress "${CONFIG_FILE}" ${files}
 
   # Build the elevation data if requested
   if [[ $do_elevation == "True" ]]; then
