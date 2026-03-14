@@ -32,7 +32,7 @@ trap cleanup EXIT
 SQL="
 WITH joined AS (
   SELECT
-    l.osm_id,
+    r.osm_id,
     MAX(
       CASE ez.zone_type
         WHEN 'red' THEN 1
@@ -41,19 +41,21 @@ WITH joined AS (
         ELSE 0
       END
     ) AS zone_rank
-  FROM planet_osm_line l
-  JOIN eco_zones ez ON ST_Intersects(l.way, ez.way)
-  WHERE l.osm_id > 0
-    AND l.highway IS NOT NULL
-  GROUP BY l.osm_id
+  FROM osm_roads r
+  JOIN eco_zones ez
+    ON ST_Intersects(r.geom, ez.way)
+  WHERE r.osm_id > 0
+    AND r.highway IS NOT NULL
+  GROUP BY r.osm_id
 )
-SELECT osm_id,
-       CASE zone_rank
-         WHEN 1 THEN 'red'
-         WHEN 2 THEN 'yellow'
-         WHEN 3 THEN 'green'
-         ELSE NULL
-       END AS zone_type
+SELECT
+  osm_id,
+  CASE zone_rank
+    WHEN 1 THEN 'red'
+    WHEN 2 THEN 'yellow'
+    WHEN 3 THEN 'green'
+    ELSE NULL
+  END AS zone_type
 FROM joined
 WHERE zone_rank > 0;
 "
@@ -91,7 +93,9 @@ with mapping_path.open(newline="") as f:
     for row in csv.reader(f, delimiter="|"):
         if len(row) != 2:
             continue
-        zone_map[row[0]] = row[1]
+        osm_id, zone_type = row
+        if zone_type:
+            zone_map[osm_id] = zone_type
 
 tree = ET.parse(extracted_path)
 root = tree.getroot()
@@ -103,9 +107,11 @@ for way in root.findall("way"):
     way_id = way.get("id")
     if way_id not in zone_map:
         continue
+
     for tag in list(way.findall("tag")):
         if tag.get("k") == "eco_zone":
             way.remove(tag)
+
     ET.SubElement(way, "tag", k="eco_zone", v=zone_map[way_id])
     modify.append(way)
 
