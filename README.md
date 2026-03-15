@@ -23,7 +23,7 @@ If your eco zones exist only as polygons in PostGIS, tag the OSM ways before bui
 4. Export a tagged PBF (adds `eco_zone=red|yellow|green` to ways intersecting `eco_zones` polygons):
 
    ```bash
-   sudo bash scripts/tag_eco_zones_postgis.sh custom_files/berlin.osm.pbf custom_files/berlin_eco.osm.pbf postgis
+   sudo bash scripts/tag_eco_zones_postgis.sh ../MiMa/backend/data/berlin.osm.pbf custom_files/berlin_eco.osm.pbf postgis
    ```
 
    This uses:
@@ -38,10 +38,20 @@ If your eco zones exist only as polygons in PostGIS, tag the OSM ways before bui
 1. ```bash
    git submodule update --init --recursive third_party/
    ```
-2. ```bash
+2. Raspberry Pi
+   ```bash
+   docker compose build --build-arg CONCURRENCY=1 valhalla-base
+   ```
+   PC
+   ```bash
    docker compose build valhalla-base
    ```
-3. ```bash
+3. Raspberry Pi
+   ```bash
+   docker compose build --build-arg CONCURRENCY=1 valhalla
+   ```
+   PC
+   ```bash
    docker compose build valhalla
    ```
 4. ```bash
