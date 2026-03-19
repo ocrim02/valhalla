@@ -23,7 +23,7 @@ If your eco zones exist only as polygons in PostGIS, tag the OSM ways before bui
 4. Export a tagged PBF (adds `eco_zone=red|yellow|green` to ways intersecting `eco_zones` polygons):
 
    ```bash
-   sudo bash scripts/tag_eco_zones_postgis.sh ../MiMa/backend/data/berlin.osm.pbf custom_files/berlin_eco.osm.pbf postgis
+   bash scripts/tag_eco_zones_postgis.sh ../MiMa/backend/data/world.osm.pbf custom_files/world_eco.osm.pbf postgis
    ```
 
    This uses:
