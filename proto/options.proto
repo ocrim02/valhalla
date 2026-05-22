@@ -547,4 +547,5 @@ message Options {
   Tile tile_xyz = 63;                                              // x, y, z for /tile requests
   TileOptions tile_options = 64;                                   // additional /tile specific options
   repeated Levels exclude_levels = 65;                             // Levels to exclude within the exclude_polygon at the same index
+  bool narrative_route_numbers_only = 66;                          // Only include route-number street names in narrative instructions.
 }

@@ -1281,6 +1281,11 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
   options.set_voice_instructions(
       rapidjson::get<bool>(doc, "/voice_instructions", options.voice_instructions()));
 
+  // whether narrative instructions should use only route-number street names, default false
+  options.set_narrative_route_numbers_only(
+      rapidjson::get<bool>(doc, "/narrative_route_numbers_only",
+                           options.narrative_route_numbers_only()));
+
   options.set_turn_lanes(rapidjson::get<bool>(doc, "/turn_lanes", options.turn_lanes()));
 
   // whether to include roundabout_exit maneuvers, default true

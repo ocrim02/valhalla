@@ -314,6 +314,7 @@ Directions options should be specified at the top level of the JSON object.
 | `shape_format` | If `"format" : "osrm"` is set: Specifies the optional format for the path shape of each connection. One of `polyline6` (default), `polyline5`, `geojson` or `no_shape`. |
 | `banner_instructions` | If the format is `osrm`, this boolean indicates if each step should have the additional `bannerInstructions` attribute, which can be displayed in some navigation system SDKs. |
 | `voice_instructions` | If the format is `osrm`, this boolean indicates if each step should have the additional `voiceInstructions` attribute, which can be heard in some navigation system SDKs. |
+| `narrative_route_numbers_only` | When present and `true`, narrative instructions and verbal instructions include only route-number street names, such as `B12` or `US 30`, and omit ordinary street names. |
 | `alternates` |  A number denoting how many alternate routes should be provided. There may be no alternates or less alternates than the user specifies. Alternates are not yet supported on multipoint routes (that is, routes with more than 2 locations). They are also not supported on time dependent routes. |
 
 For example a bus request with the result in Spanish using the OSRM (Open Source Routing Machine) format with the additional bannerInstructions and voiceInstructions in the steps would use the following json:

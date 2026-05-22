@@ -394,6 +394,13 @@ void test_show_locations_parsing(const bool expected_value,
   validate(key, expected_value, request.options().show_locations());
 }
 
+void test_narrative_route_numbers_only_parsing(const bool expected_value,
+                                               const Options::Action action = Options::route) {
+  const std::string key = "narrative_route_numbers_only";
+  Api request = get_request(get_request_str(key, expected_value), action);
+  validate(key, expected_value, request.options().narrative_route_numbers_only());
+}
+
 void test_shape_match_parsing(const ShapeMatch expected_value, const Options::Action action) {
   const std::string key = "shape_match";
   Api request = get_request(get_request_str(key, expected_value), action);
@@ -1680,6 +1687,11 @@ TEST(ParseRequest, test_generalize) {
 TEST(ParseRequest, test_show_locations) {
   test_show_locations_parsing(true);
   test_show_locations_parsing(false);
+}
+
+TEST(ParseRequest, test_narrative_route_numbers_only) {
+  test_narrative_route_numbers_only_parsing(true);
+  test_narrative_route_numbers_only_parsing(false);
 }
 
 TEST(ParseRequest, test_shape_match) {

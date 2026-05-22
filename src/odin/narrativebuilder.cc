@@ -36,6 +36,15 @@ constexpr float kVerbalAlertMergePriorManeuverMinimumLength = kVerbalPostMinimum
 constexpr uint32_t kRoundaboutExitCountLowerBound = 1;
 constexpr uint32_t kRoundaboutExitCountUpperBound = 10;
 
+void UseBeginStreetNamesWhenStreetNamesEmpty(bool enabled,
+                                             std::string& street_names,
+                                             std::string& begin_street_names) {
+  if (enabled && street_names.empty() && !begin_street_names.empty()) {
+    street_names = begin_street_names;
+    begin_street_names.clear();
+  }
+}
+
 } // namespace
 
 namespace valhalla {
@@ -605,6 +614,9 @@ std::string NarrativeBuilder::FormStartInstruction(Maneuver& maneuver) {
   // Update street names for maneuvers that contain obvious maneuvers
   UpdateObviousManeuverStreetNames(maneuver, begin_street_names, street_names);
 
+  UseBeginStreetNamesWhenStreetNamesEmpty(options_.narrative_route_numbers_only(), street_names,
+                                          begin_street_names);
+
   // Determine which phrase to use
   uint8_t phrase_id = 0;
   if (!street_names.empty()) {
@@ -682,6 +694,9 @@ std::string NarrativeBuilder::FormVerbalStartInstruction(Maneuver& maneuver,
 
   // Update street names for maneuvers that contain obvious maneuvers
   UpdateObviousManeuverStreetNames(maneuver, begin_street_names, street_names);
+
+  UseBeginStreetNamesWhenStreetNamesEmpty(options_.narrative_route_numbers_only(), street_names,
+                                          begin_street_names);
 
   // Determine which phrase to use
   uint8_t phrase_id = 0;
@@ -4711,6 +4726,10 @@ std::string NarrativeBuilder::FormStreetNames(const StreetNames& street_names,
   uint32_t count = 0;
 
   for (const auto& street_name : street_names) {
+    if (options_.narrative_route_numbers_only() && !street_name->is_route_number()) {
+      continue;
+    }
+
     // If supplied, limit by max count
     if ((max_count > 0) && (count == max_count)) {
       break;

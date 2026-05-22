@@ -3486,6 +3486,45 @@ TEST(NarrativeBuilder, TestBuildStartInstructions_9_miles_en_US) {
   TryBuild(options, maneuvers, expected_maneuvers);
 }
 
+TEST(NarrativeBuilder, TestBuildStartInstructions_route_numbers_only_de_DE) {
+  std::string country_code = "DE";
+  std::string state_code = "BE";
+
+  // Configure directions options
+  Options options;
+  options.set_units(Options::kilometers);
+  options.set_language("de-DE");
+  options.set_narrative_route_numbers_only(true);
+
+  // Configure maneuvers
+  std::list<Maneuver> maneuvers;
+  maneuvers.emplace_back();
+  PopulateManeuver(maneuvers.back(), country_code, state_code, DirectionsLeg_Maneuver_Type_kStart,
+                   {{"Karl-Liebknecht-Straße", 0}},
+                   {{"Karl-Liebknecht-Straße", 0}, {"B 2", 1}, {"B 5", 1}}, {}, "", 0.778f, 110, 0,
+                   Maneuver::RelativeDirection::kNone,
+                   DirectionsLeg_Maneuver_CardinalDirection_kNorthEast, 51, 51, 0, 45, 0, 45, 0, 0, 0,
+                   0, 0, 0, 0, 0, 0, {}, {}, {}, {}, 0, 0, 0, 0, 1, 0, "", "", "", "", 0);
+  maneuvers.back().set_travel_mode(TravelMode::kDrive);
+
+  // Configure expected maneuvers based on directions options
+  std::list<Maneuver> expected_maneuvers;
+  expected_maneuvers.emplace_back();
+  PopulateManeuver(expected_maneuvers.back(), country_code, state_code,
+                   DirectionsLeg_Maneuver_Type_kStart, {{"Karl-Liebknecht-Straße", 0}},
+                   {{"Karl-Liebknecht-Straße", 0}, {"B 2", 1}, {"B 5", 1}}, {}, "", 0.778f, 110, 0,
+                   Maneuver::RelativeDirection::kNone,
+                   DirectionsLeg_Maneuver_CardinalDirection_kNorthEast, 51, 51, 0, 45, 0, 45, 0, 0, 0,
+                   0, 0, 0, 0, 0, 0, {}, {}, {}, {}, 0, 0, 0, 0, 1, 0, "", "", "", "", 0);
+  expected_maneuvers.back().set_travel_mode(TravelMode::kDrive);
+  SetExpectedManeuverInstructions(expected_maneuvers, "Auf B 2/B 5 Richtung Nordosten fahren.",
+                                  "Richtung Nordosten fahren.", "",
+                                  "Auf B 2, B 5 Richtung Nordosten fahren.",
+                                  "800 Meter weiter der Route folgen.");
+
+  TryBuild(options, maneuvers, expected_maneuvers);
+}
+
 TEST(NarrativeBuilder, TestBuildStartInstructions_10_miles_en_US) {
   std::string country_code = "US";
   std::string state_code = "PA";
@@ -4376,6 +4415,57 @@ TEST(NarrativeBuilder, TestBuildTurnInstructions_2_miles_en_US) {
       "Turn left onto North Bond Street/US 1 Business/MD 924. Continue on MD 924.", "Turn left.",
       "Turn left onto North Bond Street.", "Turn left onto North Bond Street, U.S. 1 Business.",
       "Continue on Maryland 9 24 for a half mile.");
+
+  TryBuild(options, maneuvers, expected_maneuvers);
+  VerifyToStayOn(maneuvers.back(), false);
+}
+
+TEST(NarrativeBuilder, TestBuildTurnInstructions_route_numbers_only_miles_en_US) {
+  std::string country_code = "US";
+  std::string state_code = "MD";
+
+  // Configure directions options
+  Options options;
+  options.set_units(Options::miles);
+  options.set_language("en-US");
+  options.set_narrative_route_numbers_only(true);
+
+  // Configure maneuvers
+  std::list<Maneuver> maneuvers;
+  PopulateTurnManeuverList_2(maneuvers, country_code, state_code);
+
+  // Configure expected maneuvers based on directions options
+  std::list<Maneuver> expected_maneuvers;
+  PopulateTurnManeuverList_2(expected_maneuvers, country_code, state_code);
+  SetExpectedManeuverInstructions(expected_maneuvers,
+                                  "Turn left onto US 1 Business/MD 924. Continue on MD 924.",
+                                  "Turn left.", "Turn left onto U.S. 1 Business.",
+                                  "Turn left onto U.S. 1 Business, Maryland 9 24.",
+                                  "Continue on Maryland 9 24 for a half mile.");
+
+  TryBuild(options, maneuvers, expected_maneuvers);
+  VerifyToStayOn(maneuvers.back(), false);
+}
+
+TEST(NarrativeBuilder, TestBuildTurnInstructions_route_numbers_only_no_route_numbers_miles_en_US) {
+  std::string country_code = "US";
+  std::string state_code = "PA";
+
+  // Configure directions options
+  Options options;
+  options.set_units(Options::miles);
+  options.set_language("en-US");
+  options.set_narrative_route_numbers_only(true);
+
+  // Configure maneuvers
+  std::list<Maneuver> maneuvers;
+  PopulateTurnManeuverList_1(maneuvers, country_code, state_code);
+
+  // Configure expected maneuvers based on directions options
+  std::list<Maneuver> expected_maneuvers;
+  PopulateTurnManeuverList_1(expected_maneuvers, country_code, state_code);
+  SetExpectedManeuverInstructions(expected_maneuvers, "Turn left.", "Turn left.", "Turn left.",
+                                  "Turn left.", "Continue for 1 mile.");
 
   TryBuild(options, maneuvers, expected_maneuvers);
   VerifyToStayOn(maneuvers.back(), false);
