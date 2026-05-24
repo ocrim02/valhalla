@@ -1,11 +1,13 @@
 #include "route_serializer_valhalla.h"
 #include "baldr/rapidjson_utils.h"
 #include "midgard/aabb2.h"
+#include "midgard/encoded.h"
 #include "midgard/logging.h"
 #include "odin/enhancedtrippath.h"
 #include "proto_conversions.h"
 #include "tyr/serializers.h"
 
+#include <algorithm>
 #include <vector>
 
 using namespace valhalla;
@@ -254,6 +256,71 @@ void turn_lanes(const TripLeg& leg,
   }
 }
 
+void turn_lanes(const EnhancedTripLeg_Edge& edge, rapidjson::writer_wrapper_t& writer) {
+  if (edge.turn_lanes_size() <= 1) {
+    return;
+  }
+
+  writer.start_array("lanes");
+  for (const auto& turn_lane : edge.turn_lanes()) {
+    writer.start_object();
+
+    writer("directions", turn_lane.directions_mask());
+
+    if (turn_lane.state() == TurnLane::kActive) {
+      writer("active", turn_lane.active_direction());
+    } else if (turn_lane.state() == TurnLane::kValid) {
+      writer("valid", turn_lane.active_direction());
+    }
+
+    writer.end_object();
+  }
+  writer.end_array();
+}
+
+void intersections(EnhancedTripLeg& etp,
+                   const DirectionsLeg_Maneuver& maneuver,
+                   const bool arrive_maneuver,
+                   const std::vector<PointLL>& shape,
+                   rapidjson::writer_wrapper_t& writer) {
+  if (shape.empty()) {
+    return;
+  }
+
+  writer.start_array("intersections");
+
+  const uint32_t end_path_index =
+      std::min<uint32_t>(arrive_maneuver ? maneuver.end_path_index() + 1 : maneuver.end_path_index(),
+                         etp.node_size());
+
+  for (uint32_t path_index = maneuver.begin_path_index(); path_index < end_path_index; ++path_index) {
+    const auto curr_edge = etp.GetCurrEdge(path_index);
+    const auto prev_edge = etp.GetPrevEdge(path_index);
+    const bool arrive_intersection = arrive_maneuver && path_index == maneuver.end_path_index();
+
+    uint32_t shape_index = arrive_intersection || !curr_edge ? maneuver.end_shape_index()
+                                                             : curr_edge->begin_shape_index();
+    shape_index = std::min<uint32_t>(shape_index, shape.size() - 1);
+    const auto& ll = shape[shape_index];
+
+    writer.start_object();
+    writer("path_index", path_index);
+    writer("shape_index", shape_index);
+    writer.set_precision(tyr::kCoordinatePrecision);
+    writer("lat", ll.lat());
+    writer("lon", ll.lng());
+    writer.set_precision(tyr::kDefaultPrecision);
+
+    if (prev_edge) {
+      turn_lanes(*prev_edge, writer);
+    }
+
+    writer.end_object();
+  }
+
+  writer.end_array();
+}
+
 void legs(valhalla::Api& api, int route_index, rapidjson::writer_wrapper_t& writer) {
   writer.start_array("legs");
   const auto& directions_legs = api.directions().routes(route_index).legs();
@@ -261,6 +328,7 @@ void legs(valhalla::Api& api, int route_index, rapidjson::writer_wrapper_t& writ
   auto trip_leg_itr = api.mutable_trip()->mutable_routes(route_index)->mutable_legs()->begin();
   for (const auto& directions_leg : directions_legs) {
     valhalla::odin::EnhancedTripLeg etp(*trip_leg_itr);
+    auto shape = midgard::decode<std::vector<PointLL>>(directions_leg.shape());
     writer.start_object(); // leg
     bool has_time_restrictions = false;
     bool has_toll = false;
@@ -564,6 +632,7 @@ void legs(valhalla::Api& api, int route_index, rapidjson::writer_wrapper_t& writ
       // Add Line info if enabled
       if (api.options().turn_lanes()) {
         turn_lanes(*trip_leg_itr, maneuver, writer);
+        intersections(etp, maneuver, arrive_maneuver, shape, writer);
       }
 
       writer.end_object(); // maneuver

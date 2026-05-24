@@ -699,6 +699,31 @@ TEST(Standalone, TurnLanesSerializedResponse) {
   const auto layout = gurka::detail::map_to_coordinates(ascii_map, 10);
   auto map = gurka::buildtiles(layout, ways, {}, {}, "test/data/gurka_turn_lanes_10");
 
+  {
+    std::string request = "{\"locations\":[{\"lat\":" + std::to_string(map.nodes.at("A").lat()) +
+                          ",\"lon\":" + std::to_string(map.nodes.at("A").lng()) +
+                          "},{\"lat\":" + std::to_string(map.nodes.at("E").lat()) +
+                          ",\"lon\":" + std::to_string(map.nodes.at("E").lng()) +
+                          "}],\"costing\":\"auto\",\"turn_lanes\":true}";
+    auto result = gurka::do_action(valhalla::Options::route, map, request);
+    rapidjson::Document directions = gurka::convert_to_json(result, valhalla::Options_Format_json);
+    const rapidjson::Value& maneuvers = directions["trip"]["legs"][0]["maneuvers"];
+
+    ASSERT_TRUE(maneuvers[0].HasMember("intersections"));
+    ASSERT_TRUE(maneuvers[0]["intersections"].IsArray());
+    ASSERT_GT(maneuvers[0]["intersections"].Size(), 0);
+    ASSERT_TRUE(maneuvers[0]["intersections"][0].HasMember("lat"));
+    ASSERT_TRUE(maneuvers[0]["intersections"][0].HasMember("lon"));
+    ASSERT_TRUE(maneuvers[0]["intersections"][0].HasMember("shape_index"));
+    ASSERT_TRUE(maneuvers[0]["intersections"][0].HasMember("path_index"));
+
+    ASSERT_TRUE(maneuvers[1].HasMember("lanes"));
+    ASSERT_TRUE(maneuvers[1].HasMember("intersections"));
+    ASSERT_GT(maneuvers[1]["intersections"].Size(), 0);
+    ASSERT_TRUE(maneuvers[1]["intersections"][0].HasMember("lanes"));
+    ASSERT_EQ(maneuvers[1]["lanes"].Size(), maneuvers[1]["intersections"][0]["lanes"].Size());
+  }
+
   auto verify_lane_schema = [](const rapidjson::Value& lanes) -> void {
     // Verify common lane attributes:
     // - has valid & active booleans
