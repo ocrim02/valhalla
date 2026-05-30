@@ -953,6 +953,22 @@ void test_use_tracks_parsing(const Costing::Type costing_type,
   validate(key, expected_value, options.use_tracks());
 }
 
+void test_exclude_tracks_parsing(const Costing::Type costing_type,
+                                 const bool specified_value,
+                                 const bool expected_value,
+                                 const Options::Action action = Options::route) {
+  // Create the costing string
+  auto costing_str = get_costing_str(costing_type);
+  const std::string grandparent_key = "costing_options";
+  const std::string& parent_key = costing_str;
+  const std::string key = "exclude_tracks";
+
+  Api request =
+      get_request(get_request_str(grandparent_key, parent_key, key, specified_value), action);
+  const auto& options = request.options().costings().find(costing_type)->second.options();
+  validate(key, expected_value, options.exclude_tracks());
+}
+
 void test_use_living_streets_parsing(const Costing::Type costing_type,
                                      const float specified_value,
                                      const float expected_value,
@@ -2427,6 +2443,13 @@ TEST(ParseRequest, test_use_tracks) {
     test_use_tracks_parsing(costing, 0.6f, 0.6f);
     test_use_tracks_parsing(costing, -2.f, default_value);
     test_use_tracks_parsing(costing, 2.f, default_value);
+  }
+}
+
+TEST(ParseRequest, test_exclude_tracks) {
+  for (const auto& costing : get_all_motor_costings()) {
+    test_exclude_tracks_parsing(costing, false, false);
+    test_exclude_tracks_parsing(costing, true, true);
   }
 }
 

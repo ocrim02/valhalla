@@ -350,8 +350,8 @@ public:
 
   /**
    * Checks if any edge exclusion is present.
-   * This checks if bridges, tolls, tunnels, ferries
-   * or highways are excluded in the request.
+   * This checks if bridges, tolls, tunnels, ferries,
+   * highways, or tracks are excluded in the request.
    * @param  edge           Pointer to a directed edge.
    * @param  pred           Predecessor edge information.
    * @return Returns true if edge should be excluded.
@@ -363,6 +363,7 @@ public:
             (exclude_tolls_ && !pred.toll() && edge->toll()) ||
             (exclude_highways_ && pred.classification() != baldr::RoadClass::kMotorway &&
              edge->classification() == baldr::RoadClass::kMotorway) ||
+            (exclude_tracks_ && edge->use() == baldr::Use::kTrack) ||
             (exclude_ferries_ &&
              !(pred.use() == baldr::Use::kFerry || pred.use() == baldr::Use::kRailFerry) &&
              (edge->use() == baldr::Use::kFerry || edge->use() == baldr::Use::kRailFerry)));
@@ -1338,6 +1339,7 @@ protected:
   bool exclude_tunnels_{false};
   bool exclude_tolls_{false};
   bool exclude_highways_{false};
+  bool exclude_tracks_{false};
   bool exclude_ferries_{false};
   bool has_excludes_{false};
   bool default_hierarchy_limits{true};
@@ -1455,9 +1457,10 @@ protected:
     exclude_tunnels_ = costing_options.exclude_tunnels();
     exclude_tolls_ = costing_options.exclude_tolls();
     exclude_highways_ = costing_options.exclude_highways();
+    exclude_tracks_ = costing_options.exclude_tracks();
     exclude_ferries_ = costing_options.exclude_ferries();
     has_excludes_ = exclude_bridges_ || exclude_tunnels_ || exclude_tolls_ || exclude_highways_ ||
-                    exclude_ferries_;
+                    exclude_tracks_ || exclude_ferries_;
     exclude_cash_only_tolls_ = costing_options.exclude_cash_only_tolls();
     default_hierarchy_limits = costing_options.hierarchy_limits_size() == 0;
   }
@@ -1568,6 +1571,7 @@ struct BaseCostingOptionsConfig {
   bool exclude_tunnels_;
   bool exclude_tolls_;
   bool exclude_highways_;
+  bool exclude_tracks_;
   bool exclude_ferries_;
   bool has_excludes_;
 

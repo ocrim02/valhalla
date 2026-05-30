@@ -177,7 +177,8 @@ BaseCostingOptionsConfig::BaseCostingOptionsConfig()
       use_living_streets_{0.f, kDefaultUseLivingStreets, 1.f}, use_lit_{0.f, kDefaultUseLit, 1.f},
       closure_factor_{kClosureFactorRange}, speed_penalty_factor_{kSpeedPenaltyFactorRange},
       exclude_unpaved_(false), exclude_bridges_(false), exclude_tunnels_(false),
-      exclude_tolls_(false), exclude_highways_(false), exclude_ferries_(false), has_excludes_(false),
+      exclude_tolls_(false), exclude_highways_(false), exclude_tracks_(false),
+      exclude_ferries_(false), has_excludes_(false),
       exclude_cash_only_tolls_(false), include_hot_{false}, include_hov2_{false},
       include_hov3_{false}, height_{0.f, kDefaultHeight, 10.0f}, width_{0.f, kDefaultWidth, 10.0f},
       length_{0.f, kDefaultLength, 50.0f}, weight_{0.f, kDefaultWeight, 100.0f} {
@@ -566,6 +567,7 @@ void ParseBaseCostOptions(const rapidjson::Value& json,
   JSON_PBF_DEFAULT_V2(co, cfg.exclude_tunnels_, json, "/exclude_tunnels", exclude_tunnels);
   JSON_PBF_DEFAULT_V2(co, cfg.exclude_tolls_, json, "/exclude_tolls", exclude_tolls);
   JSON_PBF_DEFAULT_V2(co, cfg.exclude_highways_, json, "/exclude_highways", exclude_highways);
+  JSON_PBF_DEFAULT_V2(co, cfg.exclude_tracks_, json, "/exclude_tracks", exclude_tracks);
   JSON_PBF_DEFAULT_V2(co, cfg.exclude_ferries_, json, "/exclude_ferries", exclude_ferries);
 
   JSON_PBF_DEFAULT_V2(co, cfg.exclude_cash_only_tolls_, json, "/exclude_cash_only_tolls",

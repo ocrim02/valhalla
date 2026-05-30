@@ -361,6 +361,7 @@ message Costing {
     oneof has_eco_zone {
       EcoZoneType eco_zone = 96;
     }
+    bool exclude_tracks = 97;
   }
 
   oneof has_options {
