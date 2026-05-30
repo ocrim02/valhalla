@@ -1000,7 +1000,7 @@ std::string NarrativeBuilder::FormContinueInstruction(Maneuver& maneuver,
     // Assign guide sign
     junction_name =
         maneuver.signs().GetJunctionNameString(element_max_count, limit_by_consecutive_count);
-  } else if (!street_names.empty()) {
+  } else if (!street_names.empty() && !options_.narrative_route_numbers_only()) {
     phrase_id = 1;
   }
 
@@ -1056,7 +1056,7 @@ std::string NarrativeBuilder::FormVerbalAlertContinueInstruction(Maneuver& maneu
     junction_name =
         maneuver.signs().GetJunctionNameString(element_max_count, limit_by_consecutive_count, delim,
                                                maneuver.verbal_formatter(), &markup_formatter_);
-  } else if (!street_names.empty()) {
+  } else if (!street_names.empty() && !options_.narrative_route_numbers_only()) {
     phrase_id = 1;
   }
 
@@ -1116,7 +1116,7 @@ std::string NarrativeBuilder::FormVerbalContinueInstruction(Maneuver& maneuver,
     junction_name =
         maneuver.signs().GetJunctionNameString(element_max_count, limit_by_consecutive_count, delim,
                                                maneuver.verbal_formatter(), &markup_formatter_);
-  } else if (!street_names.empty()) {
+  } else if (!street_names.empty() && !options_.narrative_route_numbers_only()) {
     phrase_id = 2;
   }
 
@@ -1186,6 +1186,9 @@ std::string NarrativeBuilder::FormTurnInstruction(Maneuver& maneuver,
   // Update street names for maneuvers that contain obvious maneuvers
   UpdateObviousManeuverStreetNames(maneuver, begin_street_names, street_names);
 
+  UseBeginStreetNamesWhenStreetNamesEmpty(options_.narrative_route_numbers_only(), street_names,
+                                          begin_street_names);
+
   // Determine which phrase to use
   uint8_t phrase_id = 0;
   std::string junction_name;
@@ -1202,7 +1205,7 @@ std::string NarrativeBuilder::FormTurnInstruction(Maneuver& maneuver,
     // Assign guide sign
     junction_name =
         maneuver.signs().GetJunctionNameString(element_max_count, limit_by_consecutive_count);
-  } else if (maneuver.to_stay_on()) {
+  } else if (maneuver.to_stay_on() && !street_names.empty()) {
     phrase_id = 3;
   } else if (!begin_street_names.empty()) {
     phrase_id = 2;
@@ -1288,6 +1291,9 @@ std::string NarrativeBuilder::FormVerbalTurnInstruction(Maneuver& maneuver,
   // Update street names for maneuvers that contain obvious maneuvers
   UpdateObviousManeuverStreetNames(maneuver, begin_street_names, street_names);
 
+  UseBeginStreetNamesWhenStreetNamesEmpty(options_.narrative_route_numbers_only(), street_names,
+                                          begin_street_names);
+
   // Determine which phrase to use
   uint8_t phrase_id = 0;
   std::string junction_name;
@@ -1313,7 +1319,7 @@ std::string NarrativeBuilder::FormVerbalTurnInstruction(Maneuver& maneuver,
     if (!begin_street_names.empty()) {
       phrase_id = 2;
     }
-    if (maneuver.to_stay_on()) {
+    if (maneuver.to_stay_on() && !street_names.empty()) {
       phrase_id = 3;
     }
   }
